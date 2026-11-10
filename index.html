@@ -4,529 +4,409 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Interviewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;font-family:system-ui,sans-serif;background:radial-gradient(circle at 50% 30%,#1e1b6b,#070b24 70%);color:#e2e8f0;display:flex;justify-content:center}
-.v{width:100%;max-width:640px;padding:20px;display:flex;flex-direction:column;gap:12px}
-.v[hidden]{display:none}
-h1,h2,h3{margin:6px 0}
-input,select,button{font:inherit;padding:11px 13px;border-radius:10px;border:1px solid #334a8a;background:#101a44;color:inherit}
-button{cursor:pointer;background:#2563eb;border-color:#3b82f6}
-button.alt{background:#101a44}
-button.danger{background:#b91c1c;border-color:#ef4444}
-.cards{display:flex;gap:12px}
-.card{flex:1;padding:22px 12px;text-align:center;font-size:17px;background:#101a44;border:1px solid #3b82f6;border-radius:14px}
-.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #243063;font-size:14px}
-.err{color:#fca5a5;font-size:14px;min-height:18px}
-#talk{align-items:center;text-align:center}
-.orbwrap{height:320px;display:flex;align-items:center;justify-content:center}
-.orb{position:relative;width:170px;height:170px;border-radius:50%;border:3px solid #7dd3fc;background:radial-gradient(circle,#0b1c5c 0%,#071033 70%);box-shadow:0 0 40px #38bdf8,inset 0 0 40px #38bdf866;transform:scale(var(--s,1));transition:transform .08s linear}
-.orb::before{content:"";position:absolute;inset:-26px;border-radius:50%;border:2px dashed #38bdf899;animation:spin 14s linear infinite}
-.orb::after{content:"";position:absolute;inset:14px;border-radius:50%;border:2px solid #a5f3fc;border-left-color:transparent;border-right-color:transparent;animation:spin 3s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-#q{font-size:19px;min-height:60px}
-#status{color:#93c5fd;font-size:14px}
-#repbody p{margin:4px 0;line-height:1.45}
+:root{--ink:#1e2240;--mut:#6b7090;--pri:#6d5ef5;--line:#e4e6f5}
+body{margin:0;min-height:100vh;font-family:Poppins,system-ui,sans-serif;color:var(--ink);background:linear-gradient(135deg,#cfe3fa,#e4d6fb 55%,#f4f6d4);padding:20px}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--pri);box-shadow:0 0 0 3px #6d5ef522}
+button{cursor:pointer;border:0;border-radius:12px;padding:12px 18px;background:linear-gradient(135deg,#6d5ef5,#4f8cff);color:#fff;font-weight:500}
+button:disabled{opacity:.5;cursor:wait}
+button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+button.danger{background:#fff;color:#c0262d;border:1px solid #f3c4c6}
+button.sm{padding:7px 12px;font-size:13px}
+button:focus-visible{outline:3px solid #6d5ef555}
+h1,h2,h3{margin:0 0 8px}h3{margin-top:22px}
+small,.mut{color:var(--mut)}
+label{font-size:13px;color:var(--mut);display:block;margin:12px 0 5px}
+.err{color:#c0262d;font-size:14px;min-height:20px}
+.auth{max-width:400px;margin:8vh auto;background:#ffffffb8;backdrop-filter:blur(14px);border-radius:24px;padding:34px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.sphere{width:84px;height:84px;border-radius:50%;margin:0 auto 8px;background:radial-gradient(circle at 30% 25%,#fffa,#0000 32%),conic-gradient(from 200deg,#22d3ee,#a855f7,#f97316,#ec4899,#22d3ee);box-shadow:0 12px 30px #a855f755}
+#app{display:flex;gap:0;max-width:1180px;margin:0 auto;background:#ffffff70;backdrop-filter:blur(14px);border-radius:28px;min-height:calc(100vh - 40px);overflow:hidden}
+aside{width:220px;padding:24px 14px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,#e0f2fe99,#e9d5ff99)}
+aside b{font-size:18px;padding:0 10px 14px}
+aside button{background:none;color:var(--ink);text-align:left;font-weight:400;padding:10px 12px}
+aside button.on{background:#fff;font-weight:600}
+aside .sp{flex:1}
+main{flex:1;padding:30px;background:linear-gradient(160deg,#fff9,#f6ecff99);min-width:0}
+.hero{text-align:center;margin-bottom:22px}
+.hero .sphere{width:96px;height:96px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+.stat{background:#fff;border-radius:16px;padding:18px;position:relative;overflow:hidden}
+.stat:before{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;opacity:.35;background:var(--c)}
+.stat b{font-size:30px;display:block}
+.quick{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.seg{display:flex;gap:8px;margin-bottom:6px}.seg button{flex:1}
+.card{background:#fff;border-radius:18px;padding:22px;max-width:560px}
+.it{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.it>div{flex:1;min-width:0}.it small{display:block}
+.pill{background:#ede9fe;color:#5b45e0;border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600}
+.empty{text-align:center;color:var(--mut);padding:24px}
+.top{display:flex;gap:18px;align-items:center;background:#fff;border-radius:18px;padding:20px}
+.ring{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--pri) calc(var(--p)*1%),#ece9fb 0);flex:none}
+.ring span{width:74px;height:74px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:22px;font-weight:600}
+.li{background:#fff;border-radius:12px;padding:11px 14px;margin-bottom:6px;line-height:1.5}
+.li.bad{border-left:4px solid #ef4444}.li.good{border-left:4px solid #22c55e}
+.qc{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;line-height:1.5}
+.qc p{margin:6px 0}
+#stage{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 35%,#0b2a63,#021228 70%);color:#eaf2ff;display:flex;flex-direction:column;align-items:center;padding:20px;overflow:auto}
+.sh{width:100%;max-width:640px;display:flex;justify-content:space-between;align-items:center}
+.sh button{background:#ffffff1a;border:1px solid #ffffff33}
+#av{margin:26px 0 14px;transform:scale(var(--s,1));transition:transform .08s linear}
+.lorb{width:190px;height:190px;border-radius:50%;border:6px solid #ffe9cf;background:radial-gradient(circle at 50% 15%,#2447e0,#08134a 60%,#020b24);box-shadow:0 0 60px #7c3aed88;display:grid;place-items:center}
+.lorb svg{width:75%}
+#cap{max-width:620px;text-align:center;font-size:20px;line-height:1.45;min-height:58px}
+#st{color:#9db8e8;font-size:14px;margin:8px 0 14px;text-align:center}
+#ctr,.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+#ed{width:100%;max-width:600px}
+#ed textarea{background:#0d1f4a;border-color:#2b4a9a;color:#fff;margin-bottom:10px}
+#stage .ghost{background:#ffffff14;color:#fff;border-color:#ffffff33}
+#modal{position:fixed;inset:0;z-index:30;background:#0a0f2a88;display:grid;place-items:center;padding:20px}
+.mb{background:#fff;border-radius:18px;padding:26px;max-width:380px;text-align:center;display:flex;flex-direction:column;gap:16px}
+.mb p{margin:0;line-height:1.5}
+@media(max-width:760px){body{padding:8px}#app{flex-direction:column;border-radius:18px}aside{width:auto;flex-direction:row;flex-wrap:wrap;padding:12px}aside b{width:100%;padding:0 6px 4px}aside .sp{display:none}main{padding:18px}.stats{grid-template-columns:1fr}.top{flex-direction:column;text-align:center}}
+@media(prefers-reduced-motion:reduce){#av{transition:none}}
 </style>
 </head>
 <body>
 
-<div id="login" class="v" hidden>
-  <h1>🎙️ AI Interviewer</h1>
+<div id="login" class="auth" hidden>
+  <div class="sphere"></div>
+  <h1>AI Interviewer</h1>
+  <small>Practice speaking interviews and get a detailed report.</small>
   <input id="em" type="email" placeholder="Email" autocomplete="username">
   <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
   <button id="go">Log in</button>
   <div id="lerr" class="err"></div>
 </div>
 
-<div id="home" class="v" hidden>
-  <div style="display:flex;justify-content:space-between;align-items:center"><h1>Dashboard</h1><button id="out" class="alt">Log out</button></div>
-  <div class="cards">
-    <button class="card" data-mode="Conversational">💬 Conversational</button>
-    <button class="card" data-mode="Subject-based">📚 Subject-based</button>
+<div id="app" hidden>
+  <aside>
+    <b>AI Interviewer</b>
+    <button data-v="dash">🏠 Dashboard</button>
+    <button data-v="new">🎙 New interview</button>
+    <button data-v="reps">📄 Reports</button>
+    <div class="sp"></div>
+    <button id="out">Log out</button>
+  </aside>
+  <main>
+    <section id="dash" class="pg">
+      <div class="hero"><div class="sphere"></div><h1 id="greet"></h1><div class="mut">Pick a mode and start practising.</div></div>
+      <div class="quick">
+        <button data-q="Conversational">💬 Start conversation</button>
+        <button data-q="Subject-based" class="ghost">📚 Start subject interview</button>
+      </div>
+      <div class="stats">
+        <div class="stat" style="--c:#a78bfa"><small>Interviews completed</small><b id="s1">0</b></div>
+        <div class="stat" style="--c:#fb923c"><small>Average score</small><b id="s2">–</b></div>
+        <div class="stat" style="--c:#38bdf8"><small>Best score</small><b id="s3">–</b></div>
+      </div>
+      <h3>Recent interviews</h3>
+      <div id="recent"></div>
+    </section>
+
+    <section id="new" class="pg" hidden>
+      <h2>New interview</h2>
+      <div class="card">
+        <div class="seg">
+          <button class="ghost" data-m="Conversational">💬 Conversational</button>
+          <button class="ghost" data-m="Subject-based">📚 Subject-based</button>
+        </div>
+        <label for="nm">Your name</label>
+        <input id="nm" placeholder="e.g. Poorthi" maxlength="40">
+        <div id="sf">
+          <label for="tp">Topic</label>
+          <input id="tp" placeholder="e.g. Java OOP, SQL, HR round" maxlength="80">
+          <label for="sub">Sub topics (optional)</label>
+          <input id="sub" placeholder="e.g. inheritance, polymorphism" maxlength="120">
+          <label for="lv">Level</label>
+          <select id="lv"><option>Basic</option><option>Intermediate</option><option>Advanced</option></select>
+          <label for="ct">Number of questions (1–20)</label>
+          <input id="ct" type="number" min="1" max="20" value="5">
+        </div>
+        <p class="mut" id="chint" hidden>Just talk naturally. The AI chats like a person, and you end it whenever you want.</p>
+        <br><button id="start" style="width:100%">Start interview</button>
+      </div>
+    </section>
+
+    <section id="reps" class="pg" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:center"><h2>Reports</h2><button id="delall" class="danger sm">Delete all history</button></div>
+      <div id="all"></div>
+    </section>
+
+    <section id="rep" class="pg" hidden>
+      <div id="rb"></div><br>
+      <div class="row" style="justify-content:flex-start"><button id="back" class="ghost">Back to reports</button><button id="del" class="danger">Delete this report</button></div>
+    </section>
+  </main>
+</div>
+
+<div id="stage" hidden>
+  <div class="sh"><span id="sc"></span><button id="bEnd"></button></div>
+  <div id="av"></div>
+  <div id="cap"></div>
+  <div id="st"></div>
+  <div id="ctr"><button id="bDone">⏹ Done speaking</button><button id="bSkip" class="ghost">Skip question</button></div>
+  <div id="ed" hidden>
+    <textarea id="txt" rows="4" placeholder="Your answer. Edit it here if needed."></textarea>
+    <div class="row"><button id="bAgain" class="ghost">🎙 Re-record</button><button id="bSubmit">Submit answer</button></div>
   </div>
-  <h3>History</h3>
-  <div id="hist"></div>
-  <button id="delall" class="danger">Delete all my history</button>
 </div>
 
-<div id="setup" class="v" hidden>
-  <h2 id="smode"></h2>
-  <input id="topic" placeholder="Topic (e.g. Java OOP, Daily English, HR round)">
-  <select id="level"><option>Basic</option><option>Intermediate</option><option>Advanced</option></select>
-  <select id="count"><option value="3">3 questions</option><option value="5" selected>5 questions</option><option value="10">10 questions</option></select>
-  <button id="start">Start interview</button>
-  <button id="back1" class="alt">Back</button>
-  <div id="serr" class="err"></div>
-</div>
-
-<div id="talk" class="v" hidden>
-  <div id="count2" style="color:#93c5fd"></div>
-  <div class="orbwrap"><div class="orb" id="orb"></div></div>
-  <div id="q"></div>
-  <div id="status"></div>
-  <button id="submit" hidden>Submit answer</button>
-  <button id="back2" class="alt" hidden>Back to dashboard</button>
-</div>
-
-<div id="rep" class="v" hidden>
-  <div id="repbody"></div>
-  <button id="del" class="danger">🗑 Delete this interview</button>
-  <button id="back3" class="alt">Back to dashboard</button>
-</div>
+<div id="modal" hidden><div class="mb"><p id="mt"></p><button id="mok">OK</button></div></div>
 
 <script>
-// ===== SUPABASE CONFIGURATION =====
-const SB_URL = "https://bzrulsywzdvlosymlagz.supabase.co";
-const SB_KEY = "sb_publishable_XMaA7s_OjKJ3JaMNam5Nzg_oCEGe3H6";
-// ==================================
+const SB_URL="https://bzrulsywzdvlosymlagz.supabase.co";
+const SB_KEY="sb_publishable_XMaA7s_OjKJ3JaMNam5Nzg_oCEGe3H6";
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const $=i=>document.getElementById(i);
+const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const END="__END__";
+const ORB='<div class="lorb"><svg viewBox="0 0 100 60"><path d="M0 30Q25 30 50 6Q75 30 100 30Q75 30 50 54Q25 30 0 30Z" fill="#a855f7" opacity=".55"/><path d="M12 30Q32 30 50 14Q68 30 88 30Q68 30 50 46Q32 30 12 30Z" fill="#e9d5ff" opacity=".85"/><path d="M30 30Q40 30 50 22Q60 30 70 30Q60 30 50 38Q40 30 30 30Z" fill="#fff"/></svg></div>';
+const ROBOT='<svg width="190" height="190" viewBox="0 0 120 120"><line x1="60" y1="8" x2="60" y2="24" stroke="#7dd3fc" stroke-width="3"/><circle cx="60" cy="8" r="5" fill="#f472b6"/><rect x="18" y="24" width="84" height="70" rx="24" fill="#12307a" stroke="#7dd3fc" stroke-width="3"/><rect x="8" y="50" width="10" height="22" rx="5" fill="#7dd3fc"/><rect x="102" y="50" width="10" height="22" rx="5" fill="#7dd3fc"/><circle cx="42" cy="54" r="9" fill="#7dd3fc"/><circle cx="78" cy="54" r="9" fill="#7dd3fc"/><circle cx="42" cy="54" r="3.5" fill="#021228"/><circle cx="78" cy="54" r="3.5" fill="#021228"/><rect x="40" y="74" width="40" height="8" rx="4" fill="#a855f7"/></svg>';
+let user,mode="Conversational",run=0,ctx,mic,ma,an=null,sm=0,resolver=null,rows=[],audio=null,starting=false;
 
-const sb = supabase.createClient(SB_URL, SB_KEY);
-const $ = i => document.getElementById(i);
-const show = v => document.querySelectorAll(".v").forEach(e => e.hidden = e.id !== v);
-let mode = "", cur = null, ctx, mic, ma, orbA = null, sm = 0;
+const popup=m=>{$("mt").textContent=m;$("modal").hidden=false};
+$("mok").onclick=()=>$("modal").hidden=true;
+const ask=()=>new Promise(r=>resolver=r);
+const fire=v=>{if(resolver){const r=resolver;resolver=null;r(v)}};
+const st=t=>$("st").textContent=t;
 
-async function api(body, isForm) {
-  const { data: { session } } = await sb.auth.getSession();
-
-  if (!session) {
-    throw new Error("Please log in again.");
-  }
-
-  const h = {
-    apikey: SB_KEY,
-    Authorization: "Bearer " + session.access_token
-  };
-
-  if (!isForm) h["Content-Type"] = "application/json";
-
-  const r = await fetch(
-    SB_URL + "/functions/v1/interview",
-    {
-      method: "POST",
-      headers: h,
-      body: isForm ? body : JSON.stringify(body)
-    }
-  );
-
-  if (!r.ok) throw new Error(await r.text());
-
+async function api(body,form){
+  const{data:{session}}=await sb.auth.getSession();
+  if(!session)throw Error("Please log in again.");
+  const hd={apikey:SB_KEY,Authorization:"Bearer "+session.access_token};
+  if(!form)hd["Content-Type"]="application/json";
+  const r=await fetch(SB_URL+"/functions/v1/interview",{method:"POST",headers:hd,body:form?body:JSON.stringify(body)});
+  if(!r.ok){let m="Request failed ("+r.status+")";try{m=(await r.json()).error||m}catch{}throw Error(m)}
   return r;
 }
 
-// ---- LOGIN ----
-$("go").onclick = async () => {
-  const { error } = await sb.auth.signInWithPassword({
-    email: $("em").value.trim(),
-    password: $("pw").value
+// ---- auth ----
+$("go").onclick=async()=>{
+  $("lerr").textContent="";
+  const{data,error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});
+  if(error)$("lerr").textContent=error.message;else boot(data.user);
+};
+$("out").onclick=async()=>{await sb.auth.signOut();$("app").hidden=true;$("login").hidden=false};
+sb.auth.getSession().then(({data})=>{if(data.session)boot(data.session.user);else $("login").hidden=false});
+async function boot(u){user=u;$("login").hidden=true;$("app").hidden=false;$("nm").value=localStorage.getItem("nm")||"";setMode("Conversational");await load();go("dash")}
+
+// ---- navigation ----
+function go(v){
+  document.querySelectorAll(".pg").forEach(e=>e.hidden=e.id!==v);
+  document.querySelectorAll("aside [data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v||(v==="rep"&&b.dataset.v==="reps")));
+}
+document.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>go(b.dataset.v));
+function setMode(m){
+  mode=m;$("sf").hidden=m==="Conversational";$("chint").hidden=m!=="Conversational";
+  document.querySelectorAll("[data-m]").forEach(b=>{b.style.background=b.dataset.m===m?"#ede9fe":"";b.style.borderColor=b.dataset.m===m?"#6d5ef5":""});
+}
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{setMode(b.dataset.q);go("new")});
+$("back").onclick=()=>go("reps");
+
+// ---- data ----
+async function load(){
+  const{data,error}=await sb.from("sessions").select("*").eq("user_id",user.id).order("created_at",{ascending:false});
+  if(error)return popup(error.message);
+  rows=data||[];
+  const hr=new Date().getHours(),nm=localStorage.getItem("nm")||user.email.split("@")[0];
+  $("greet").textContent=(hr<12?"Good morning, ":hr<18?"Good afternoon, ":"Good evening, ")+nm;
+  $("s1").textContent=rows.length;
+  const sc=rows.map(r=>+r.score||0);
+  $("s2").textContent=sc.length?(sc.reduce((a,b)=>a+b,0)/sc.length).toFixed(1)+"/10":"–";
+  $("s3").textContent=sc.length?Math.max(...sc)+"/10":"–";
+  const fill=(el,list)=>{el.innerHTML="";if(!list.length)el.append(h("div","empty","No interviews yet. Start your first one."));list.forEach(s=>el.append(item(s)))};
+  fill($("recent"),rows.slice(0,4));fill($("all"),rows);
+}
+function item(s){
+  const d=h("div","it"),l=h("div");
+  l.append(h("b","",s.topic),h("small","",`${s.mode} · ${s.level} · ${new Date(s.created_at).toLocaleDateString()}`));
+  const o=h("button","ghost sm","Open"),x=h("button","danger sm","Delete");
+  o.onclick=()=>report(s);x.onclick=()=>delOne(s.id);
+  d.append(l,h("span","pill",s.score+"/10"),o,x);return d;
+}
+async function delOne(id){
+  if(!confirm("Delete this interview permanently?"))return;
+  const{error}=await sb.from("sessions").delete().eq("id",id).eq("user_id",user.id);
+  if(error)return popup(error.message);
+  await load();go("reps");
+}
+$("del").onclick=()=>cur&&delOne(cur.id);
+$("delall").onclick=async()=>{
+  if(!confirm("Delete ALL your interview history from the database? This cannot be undone."))return;
+  const{error}=await sb.from("sessions").delete().eq("user_id",user.id);
+  if(error)return popup(error.message);
+  await load();
+};
+
+// ---- topic check ----
+function validTopic(t){
+  if(t.length<2||t.length>80||!/[a-z]/i.test(t))return false;
+  return t.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>=5).every(w=>/[aeiouy]/.test(w)&&!/[^aeiouy]{6,}/.test(w)&&!/(.)\1{3,}/.test(w));
+}
+
+// ---- start ----
+$("start").onclick=async()=>{
+  if(starting)return;
+  const name=$("nm").value.trim();
+  if(name.length<2)return popup("Please enter your name.");
+  const f={name,mode,topic:"Free conversation",level:"Casual",subtopics:""};
+  if(mode==="Subject-based"){
+    f.topic=$("tp").value.trim();
+    if(!validTopic(f.topic))return popup("Please enter a valid topic, for example: Java OOP, SQL joins or HR round.");
+    f.subtopics=$("sub").value.trim();f.level=$("lv").value;
+    f.count=Math.min(20,Math.max(1,parseInt($("ct").value)||5));
+  }
+  starting=true;$("start").disabled=true;let ok=false;
+  try{
+    if(mode==="Subject-based"){
+      const v=await(await api({action:"validate_topic",topic:f.topic,subtopics:f.subtopics})).json();
+      if(!v.valid)return popup("Please enter a valid topic. \""+f.topic+"\" was not recognised.");
+    }
+    localStorage.setItem("nm",name);
+    ctx=new AudioContext();await ctx.resume();
+    mic=await navigator.mediaDevices.getUserMedia({audio:true});
+    ma=ctx.createAnalyser();ma.fftSize=512;ctx.createMediaStreamSource(mic).connect(ma);
+    ok=true;
+  }catch(e){popup("Could not start: "+e.message)}
+  finally{starting=false;$("start").disabled=false}
+  if(ok)interview(f);
+};
+
+// ---- audio ----
+function level(a){const d=new Uint8Array(a.fftSize);a.getByteTimeDomainData(d);let s=0;for(const v of d)s+=((v-128)/128)**2;return Math.sqrt(s/d.length)}
+(function loop(){sm+=((an?level(an):0)-sm)*.3;$("av").style.setProperty("--s",1+Math.min(sm*4,.8));requestAnimationFrame(loop)})();
+
+async function say(text,my){
+  const blob=await(await api({action:"speak",text})).blob();
+  if(my!==run)return;
+  await new Promise(res=>{
+    let done=false;const end=()=>{if(done)return;done=true;an=null;res()};
+    const a=audio=new Audio(URL.createObjectURL(blob));
+    const pa=ctx.createAnalyser();pa.fftSize=512;
+    ctx.createMediaElementSource(a).connect(pa);pa.connect(ctx.destination);
+    an=pa;a.onended=end;a.onerror=end;a.play().catch(end);
   });
+}
 
-  if (error) {
-    $("lerr").textContent = error.message;
-  } else {
-    home();
+async function getAnswer(conv,my){
+  for(;;){
+    $("ed").hidden=true;$("ctr").hidden=false;$("bSkip").hidden=conv;
+    an=ma;st("Listening… press Done speaking when you finish");
+    const rec=new MediaRecorder(mic),ch=[];
+    rec.ondataavailable=e=>ch.push(e.data);rec.start();
+    const a=await ask();
+    await new Promise(r=>{rec.onstop=r;rec.state!=="inactive"?rec.stop():r()});
+    an=null;if(my!==run)return END;
+    if(a==="end")return END;
+    if(a==="skip")return "(skipped)";
+    let text="";
+    const blob=new Blob(ch,{type:rec.mimeType});
+    if(blob.size>1500){
+      st("Transcribing…");$("ctr").hidden=true;
+      const f=new FormData();f.append("action","transcribe");
+      f.append("file",blob,blob.type.includes("mp4")?"a.mp4":"a.webm");
+      text=((await(await api(f,true)).json()).text||"").trim();
+    }
+    if(my!==run)return END;
+    $("ctr").hidden=true;$("ed").hidden=false;$("txt").value=text;$("txt").focus();
+    st(text?"Check your answer, edit if needed, then submit":"Nothing heard. Type your answer or re-record");
+    const b=await ask();
+    if(b==="end")return END;
+    if(b==="again")continue;
+    const v=$("txt").value.trim();
+    if(v)return v;
   }
-};
+}
 
-$("out").onclick = async () => {
-  await sb.auth.signOut();
-  show("login");
-};
+$("bDone").onclick=()=>fire("done");
+$("bSkip").onclick=()=>fire("skip");
+$("bAgain").onclick=()=>fire("again");
+$("bSubmit").onclick=()=>fire("submit");
+$("bEnd").onclick=()=>{if(resolver)fire("end");else leave()};
 
-sb.auth.getSession().then(({ data }) =>
-  data.session ? home() : show("login")
-);
+function leave(){
+  run++;an=null;resolver=null;
+  try{audio&&audio.pause()}catch{}
+  try{mic&&mic.getTracks().forEach(t=>t.stop())}catch{}
+  try{ctx&&ctx.close()}catch{}
+  $("stage").hidden=true;
+}
 
-// ---- DASHBOARD ----
-async function home() {
-  show("home");
-
-  const { data, error } = await sb
-    .from("sessions")
-    .select("id,mode,topic,level,score,created_at")
-    .order("created_at", { ascending: false });
-
-  $("hist").innerHTML = "";
-
-  if (error) {
-    $("hist").textContent = error.message;
-    return;
-  }
-
-  (data || []).forEach(s => {
-    const d = document.createElement("div");
-    d.className = "item";
-
-    const t = document.createElement("span");
-
-    t.textContent =
-      `${s.topic} · ${s.mode} · ${s.level} · ${s.score}/10 · ${new Date(s.created_at).toLocaleDateString()}`;
-
-    const b = document.createElement("button");
-    b.textContent = "Open";
-    b.className = "alt";
-
-    b.onclick = async () => {
-      const { data: r, error } = await sb
-        .from("sessions")
-        .select("*")
-        .eq("id", s.id)
-        .single();
-
-      if (error) {
-        alert(error.message);
-        return;
+// ---- interview ----
+async function interview(f){
+  const my=++run,conv=f.mode==="Conversational",qa=[];
+  $("stage").hidden=false;$("av").innerHTML=conv?ROBOT:ORB;
+  $("bEnd").textContent=conv?"End & get report":"Finish early";$("bEnd").hidden=false;
+  $("cap").textContent="";$("ed").hidden=true;$("ctr").hidden=true;$("sc").textContent=conv?"Conversation":f.topic;
+  try{
+    if(conv){
+      const hist=[];
+      for(let n=0;n<40;n++){
+        st("Thinking…");
+        const r=(await(await api({action:"chat",name:f.name,history:hist})).json()).reply;
+        if(my!==run)return;
+        hist.push({role:"assistant",content:r});
+        $("cap").textContent=r;st("Speaking…");$("ctr").hidden=true;
+        await say(r,my);if(my!==run)return;
+        const a=await getAnswer(true,my);
+        if(a===END)break;
+        hist.push({role:"user",content:a});qa.push({q:r,a});
       }
-
-      report(r);
-    };
-
-    d.append(t, b);
-    $("hist").append(d);
-  });
-}
-
-document.querySelectorAll(".card").forEach(c => {
-  c.onclick = () => {
-    mode = c.dataset.mode;
-    $("smode").textContent = mode;
-    $("serr").textContent = "";
-    show("setup");
-  };
-});
-
-$("back1").onclick = $("back2").onclick = $("back3").onclick = home;
-
-$("delall").onclick = async () => {
-  if (!confirm("Delete ALL your saved interviews permanently?")) return;
-
-  const { error } = await sb
-    .from("sessions")
-    .delete()
-    .not("id", "is", null);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  home();
-};
-
-// ---- ORB ANIMATION ----
-function level(a) {
-  const d = new Uint8Array(a.fftSize);
-  a.getByteTimeDomainData(d);
-
-  let s = 0;
-
-  for (const v of d) {
-    s += ((v - 128) / 128) ** 2;
-  }
-
-  return Math.sqrt(s / d.length);
-}
-
-(function loop() {
-  sm += ((orbA ? level(orbA) : 0) - sm) * 0.3;
-
-  $("orb").style.setProperty(
-    "--s",
-    1 + Math.min(sm * 4, 0.9)
-  );
-
-  requestAnimationFrame(loop);
-})();
-
-// ---- AUDIO HELPERS ----
-async function speak(text) {
-  return (await api({
-    action: "speak",
-    text
-  })).blob();
-}
-
-function play(blob) {
-  return new Promise(res => {
-    const a = new Audio(URL.createObjectURL(blob));
-
-    const pa = ctx.createAnalyser();
-    pa.fftSize = 512;
-
-    ctx.createMediaElementSource(a).connect(pa);
-    pa.connect(ctx.destination);
-
-    const end = () => {
-      orbA = null;
-      res();
-    };
-
-    orbA = pa;
-    a.onended = end;
-    a.onerror = end;
-    a.play().catch(end);
-  });
-}
-
-function listen() {
-  return new Promise(res => {
-    const rec = new MediaRecorder(mic);
-    const ch = [];
-
-    let spoke = false;
-    let skip = false;
-
-    rec.ondataavailable = e => ch.push(e.data);
-
-    const iv = setInterval(() => {
-      if (level(ma) > 0.02) spoke = true;
-    }, 100);
-
-    const to = setTimeout(() => {
-      if (!spoke) {
-        skip = true;
-        rec.stop();
-      }
-    }, 10000);
-
-    rec.onstop = () => {
-      clearInterval(iv);
-      clearTimeout(to);
-
-      $("submit").hidden = true;
-
-      res(
-        skip ? null : new Blob(ch, { type: rec.mimeType })
-      );
-    };
-
-    $("submit").hidden = false;
-
-    $("submit").onclick = () => rec.stop();
-
-    $("status").textContent =
-      "Listening... press Submit when you finish";
-
-    rec.start();
-  });
-}
-
-// ---- INTERVIEW ----
-$("start").onclick = async () => {
-  const topic = $("topic").value.trim();
-
-  if (!topic) {
-    $("serr").textContent = "Please enter a topic.";
-    return;
-  }
-
-  try {
-    ctx = new AudioContext();
-
-    mic = await navigator.mediaDevices.getUserMedia({
-      audio: true
-    });
-
-    ma = ctx.createAnalyser();
-    ma.fftSize = 512;
-
-    ctx.createMediaStreamSource(mic).connect(ma);
-
-  } catch (e) {
-    $("serr").textContent =
-      "Microphone not allowed: " + e.message;
-    return;
-  }
-
-  interview(topic, $("level").value, +$("count").value);
-};
-
-async function interview(topic, lvl, count) {
-  show("talk");
-
-  $("q").textContent = "";
-  $("count2").textContent = "";
-  $("back2").hidden = true;
-
-  try {
-    $("status").textContent = "Preparing questions...";
-
-    const qs = (
-      await (
-        await api({
-          action: "questions",
-          mode,
-          topic,
-          level: lvl,
-          count
-        })
-      ).json()
-    ).questions;
-
-    const skipAudio = await speak(
-      "No problem, let's move on."
-    );
-
-    const answers = [];
-
-    for (let i = 0; i < qs.length; i++) {
-      $("count2").textContent =
-        `Question ${i + 1} of ${qs.length}`;
-
-      $("q").textContent = qs[i];
-      $("status").textContent = "Asking...";
-
-      await play(await speak(qs[i]));
-
-      const b = await listen();
-      answers.push(b);
-
-      if (!b && i < qs.length - 1) {
-        $("status").textContent = "Skipping...";
-        await play(skipAudio);
+    }else{
+      st("Preparing questions…");
+      let qs=(await(await api({action:"questions",...f})).json()).questions||[];
+      const seen=new Set();qs=qs.filter(q=>{const k=q.toLowerCase().replace(/[^a-z0-9]/g,"");if(seen.has(k))return false;seen.add(k);return true});
+      for(let i=0;i<qs.length;i++){
+        if(my!==run)return;
+        $("sc").textContent=`${f.topic} · Question ${i+1} of ${qs.length}`;
+        $("cap").textContent=qs[i];st("Speaking…");$("ctr").hidden=true;
+        await say(qs[i],my);if(my!==run)return;
+        const a=await getAnswer(false,my);
+        if(a===END)break;
+        qa.push({q:qs[i],a});
       }
     }
-
-    mic.getTracks().forEach(t => t.stop());
-
-    $("q").textContent = "";
-    $("count2").textContent = "";
-
-    $("status").textContent =
-      "Evaluating your answers...";
-
-    const qa = [];
-
-    for (let i = 0; i < qs.length; i++) {
-      let a = "(no answer)";
-
-      if (answers[i]) {
-        const f = new FormData();
-
-        f.append("action", "transcribe");
-
-        f.append(
-          "file",
-          answers[i],
-          answers[i].type.includes("mp4")
-            ? "a.mp4"
-            : "a.webm"
-        );
-
-        a = (
-          (await (await api(f, true)).json()).text || ""
-        ).trim() || "(no answer)";
-      }
-
-      qa.push({
-        q: qs[i],
-        a
-      });
-    }
-
-    const rep = await (
-      await api({
-        action: "evaluate",
-        mode,
-        topic,
-        level: lvl,
-        qa
-      })
-    ).json();
-
-    const { data, error } = await sb
-      .from("sessions")
-      .insert({
-        mode,
-        topic,
-        level: lvl,
-        score: rep.score,
-        report: rep,
-        qa
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    report(data);
-
-  } catch (e) {
-    $("status").textContent = "Error: " + e.message;
-    $("back2").hidden = false;
+    if(my!==run)return;
+    if(!qa.length){leave();return}
+    $("bEnd").hidden=true;$("ed").hidden=true;$("ctr").hidden=true;$("cap").textContent="";st("Evaluating your answers…");
+    const rep=await(await api({action:"evaluate",...f,qa})).json();
+    const{data,error}=await sb.from("sessions").insert({user_id:user.id,name:f.name,mode:f.mode,topic:f.topic,subtopics:f.subtopics,level:f.level,score:rep.score,report:rep,qa}).select().single();
+    if(error)throw error;
+    leave();await load();report(data);
+  }catch(e){
+    if(my===run){st("Error: "+e.message);$("bEnd").textContent="Close";$("bEnd").hidden=false;$("ed").hidden=true;$("ctr").hidden=true}
   }
 }
 
-// ---- REPORT + DELETE ----
-function report(s) {
-  show("rep");
-
-  cur = s;
-
-  const r = s.report;
-  const el = $("repbody");
-
-  el.innerHTML = "";
-
-  const add = (t, tag = "p") => {
-    const e = document.createElement(tag);
-    e.textContent = t;
-    el.append(e);
-  };
-
-  add(`${s.topic} · ${s.level} · ${s.mode}`, "h3");
-  add(`Score: ${r.score}/10`, "h2");
-  add(r.summary);
-
-  add("Strengths", "h3");
-
-  (r.strengths || []).forEach(x =>
-    add("• " + x)
-  );
-
-  add("To improve", "h3");
-
-  (r.improvements || []).forEach(x =>
-    add("• " + x)
-  );
-
-  add("Question by question", "h3");
-
-  (s.qa || []).forEach((x, i) => {
-    add("Q: " + x.q);
-    add("Your answer: " + x.a);
-
-    add(
-      "Feedback: " +
-      ((r.per_question || [])[i] || "")
-    );
+// ---- report ----
+let cur=null;
+function report(s){
+  cur=s;go("rep");
+  const r=s.report||{},el=$("rb");el.innerHTML="";
+  const top=h("div","top"),ring=h("div","ring"),sp=h("span","",(r.score??s.score)+"/10");
+  ring.style.setProperty("--p",((r.score??s.score)||0)*10);ring.append(sp);
+  const t=h("div");t.append(h("h2","",s.topic),h("small","",`${s.mode} · ${s.level} · ${new Date(s.created_at).toLocaleDateString()}`),h("p","",r.summary||""));
+  top.append(ring,t);el.append(top);
+  const sec=(title,arr,c)=>{if(!arr||!arr.length)return;el.append(h("h3","",title));arr.forEach(x=>el.append(h("div","li "+(c||""),x)))};
+  sec("What went well",r.strengths,"good");
+  sec("Where you went wrong",r.mistakes,"bad");
+  el.append(h("h3","","Question by question"));
+  (s.qa||[]).forEach((x,i)=>{
+    const p=(r.per_question||[])[i],fb=typeof p==="string"?{feedback:p}:(p||{});
+    const c=h("div","qc");
+    c.append(h("b","","Q"+(i+1)+". "+x.q),h("p","","Your answer: "+x.a),h("p","","Feedback: "+(fb.feedback||"")));
+    if(fb.ideal)c.append(h("p","","Better answer: "+fb.ideal));
+    el.append(c);
   });
-
-  add("Study plan", "h3");
-
-  (r.study_plan || []).forEach(x =>
-    add("• " + x)
-  );
+  sec("Study plan",r.study_plan);
 }
-
-$("del").onclick = async () => {
-  if (!confirm(
-    "Delete this interview and everything saved for it?"
-  )) return;
-
-  const { error } = await sb
-    .from("sessions")
-    .delete()
-    .eq("id", cur.id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  home();
-};
 </script>
 </body>
 </html>
