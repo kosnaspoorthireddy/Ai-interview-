@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Interviewer</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,sans-serif;background:radial-gradient(circle at 50% 30%,#1e1b6b,#070b24 70%);color:#e2e8f0;display:flex;justify-content:center}
+.v{width:100%;max-width:640px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.v[hidden]{display:none}
+h1,h2,h3{margin:6px 0}
+input,select,button{font:inherit;padding:11px 13px;border-radius:10px;border:1px solid #334a8a;background:#101a44;color:inherit}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6}
+button.alt{background:#101a44}
+button.danger{background:#b91c1c;border-color:#ef4444}
+.cards{display:flex;gap:12px}
+.card{flex:1;padding:22px 12px;text-align:center;font-size:17px;background:#101a44;border:1px solid #3b82f6;border-radius:14px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #243063;font-size:14px}
+.err{color:#fca5a5;font-size:14px;min-height:18px}
+#talk{align-items:center;text-align:center}
+.orbwrap{height:320px;display:flex;align-items:center;justify-content:center}
+.orb{position:relative;width:170px;height:170px;border-radius:50%;border:3px solid #7dd3fc;background:radial-gradient(circle,#0b1c5c 0%,#071033 70%);box-shadow:0 0 40px #38bdf8,inset 0 0 40px #38bdf866;transform:scale(var(--s,1));transition:transform .08s linear}
+.orb::before{content:"";position:absolute;inset:-26px;border-radius:50%;border:2px dashed #38bdf899;animation:spin 14s linear infinite}
+.orb::after{content:"";position:absolute;inset:14px;border-radius:50%;border:2px solid #a5f3fc;border-left-color:transparent;border-right-color:transparent;animation:spin 3s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#q{font-size:19px;min-height:60px}
+#status{color:#93c5fd;font-size:14px}
+#repbody p{margin:4px 0;line-height:1.45}
+</style>
+</head>
+<body>
+
+<div id="login" class="v" hidden>
+  <h1>🎙️ AI Interviewer</h1>
+  <input id="em" type="email" placeholder="Email" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button id="go">Log in</button>
+  <div id="lerr" class="err"></div>
+</div>
+
+<div id="home" class="v" hidden>
+  <div style="display:flex;justify-content:space-between;align-items:center"><h1>Dashboard</h1><button id="out" class="alt">Log out</button></div>
+  <div class="cards">
+    <button class="card" data-mode="Conversational">💬 Conversational</button>
+    <button class="card" data-mode="Subject-based">📚 Subject-based</button>
+  </div>
+  <h3>History</h3>
+  <div id="hist"></div>
+  <button id="delall" class="danger">Delete all my history</button>
+</div>
+
+<div id="setup" class="v" hidden>
+  <h2 id="smode"></h2>
+  <input id="topic" placeholder="Topic (e.g. Java OOP, Daily English, HR round)">
+  <select id="level"><option>Basic</option><option>Intermediate</option><option>Advanced</option></select>
+  <select id="count"><option value="3">3 questions</option><option value="5" selected>5 questions</option><option value="10">10 questions</option></select>
+  <button id="start">Start interview</button>
+  <button id="back1" class="alt">Back</button>
+  <div id="serr" class="err"></div>
+</div>
+
+<div id="talk" class="v" hidden>
+  <div id="count2" style="color:#93c5fd"></div>
+  <div class="orbwrap"><div class="orb" id="orb"></div></div>
+  <div id="q"></div>
+  <div id="status"></div>
+  <button id="submit" hidden>Submit answer</button>
+  <button id="back2" class="alt" hidden>Back to dashboard</button>
+</div>
+
+<div id="rep" class="v" hidden>
+  <div id="repbody"></div>
+  <button id="del" class="danger">🗑 Delete this interview</button>
+  <button id="back3" class="alt">Back to dashboard</button>
+</div>
+
+<script>
+// ===== SUPABASE CONFIGURATION =====
+const SB_URL = "https://bzrulsywzdvlosymlagz.supabase.co";
+const SB_KEY = "sb_publishable_XMaA7s_OjKJ3JaMNam5Nzg_oCEGe3H6";
+// ==================================
+
+const sb = supabase.createClient(SB_URL, SB_KEY);
+const $ = i => document.getElementById(i);
+const show = v => document.querySelectorAll(".v").forEach(e => e.hidden = e.id !== v);
+let mode = "", cur = null, ctx, mic, ma, orbA = null, sm = 0;
+
+async function api(body, isForm) {
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (!session) {
+    throw new Error("Please log in again.");
+  }
+
+  const h = {
+    apikey: SB_KEY,
+    Authorization: "Bearer " + session.access_token
+  };
+
+  if (!isForm) h["Content-Type"] = "application/json";
+
+  const r = await fetch(
+    SB_URL + "/functions/v1/interview",
+    {
+      method: "POST",
+      headers: h,
+      body: isForm ? body : JSON.stringify(body)
+    }
+  );
+
+  if (!r.ok) throw new Error(await r.text());
+
+  return r;
+}
+
+// ---- LOGIN ----
+$("go").onclick = async () => {
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("em").value.trim(),
+    password: $("pw").value
+  });
+
+  if (error) {
+    $("lerr").textContent = error.message;
+  } else {
+    home();
+  }
+};
+
+$("out").onclick = async () => {
+  await sb.auth.signOut();
+  show("login");
+};
+
+sb.auth.getSession().then(({ data }) =>
+  data.session ? home() : show("login")
+);
+
+// ---- DASHBOARD ----
+async function home() {
+  show("home");
+
+  const { data, error } = await sb
+    .from("sessions")
+    .select("id,mode,topic,level,score,created_at")
+    .order("created_at", { ascending: false });
+
+  $("hist").innerHTML = "";
+
+  if (error) {
+    $("hist").textContent = error.message;
+    return;
+  }
+
+  (data || []).forEach(s => {
+    const d = document.createElement("div");
+    d.className = "item";
+
+    const t = document.createElement("span");
+
+    t.textContent =
+      `${s.topic} · ${s.mode} · ${s.level} · ${s.score}/10 · ${new Date(s.created_at).toLocaleDateString()}`;
+
+    const b = document.createElement("button");
+    b.textContent = "Open";
+    b.className = "alt";
+
+    b.onclick = async () => {
+      const { data: r, error } = await sb
+        .from("sessions")
+        .select("*")
+        .eq("id", s.id)
+        .single();
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      report(r);
+    };
+
+    d.append(t, b);
+    $("hist").append(d);
+  });
+}
+
+document.querySelectorAll(".card").forEach(c => {
+  c.onclick = () => {
+    mode = c.dataset.mode;
+    $("smode").textContent = mode;
+    $("serr").textContent = "";
+    show("setup");
+  };
+});
+
+$("back1").onclick = $("back2").onclick = $("back3").onclick = home;
+
+$("delall").onclick = async () => {
+  if (!confirm("Delete ALL your saved interviews permanently?")) return;
+
+  const { error } = await sb
+    .from("sessions")
+    .delete()
+    .not("id", "is", null);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  home();
+};
+
+// ---- ORB ANIMATION ----
+function level(a) {
+  const d = new Uint8Array(a.fftSize);
+  a.getByteTimeDomainData(d);
+
+  let s = 0;
+
+  for (const v of d) {
+    s += ((v - 128) / 128) ** 2;
+  }
+
+  return Math.sqrt(s / d.length);
+}
+
+(function loop() {
+  sm += ((orbA ? level(orbA) : 0) - sm) * 0.3;
+
+  $("orb").style.setProperty(
+    "--s",
+    1 + Math.min(sm * 4, 0.9)
+  );
+
+  requestAnimationFrame(loop);
+})();
+
+// ---- AUDIO HELPERS ----
+async function speak(text) {
+  return (await api({
+    action: "speak",
+    text
+  })).blob();
+}
+
+function play(blob) {
+  return new Promise(res => {
+    const a = new Audio(URL.createObjectURL(blob));
+
+    const pa = ctx.createAnalyser();
+    pa.fftSize = 512;
+
+    ctx.createMediaElementSource(a).connect(pa);
+    pa.connect(ctx.destination);
+
+    const end = () => {
+      orbA = null;
+      res();
+    };
+
+    orbA = pa;
+    a.onended = end;
+    a.onerror = end;
+    a.play().catch(end);
+  });
+}
+
+function listen() {
+  return new Promise(res => {
+    const rec = new MediaRecorder(mic);
+    const ch = [];
+
+    let spoke = false;
+    let skip = false;
+
+    rec.ondataavailable = e => ch.push(e.data);
+
+    const iv = setInterval(() => {
+      if (level(ma) > 0.02) spoke = true;
+    }, 100);
+
+    const to = setTimeout(() => {
+      if (!spoke) {
+        skip = true;
+        rec.stop();
+      }
+    }, 10000);
+
+    rec.onstop = () => {
+      clearInterval(iv);
+      clearTimeout(to);
+
+      $("submit").hidden = true;
+
+      res(
+        skip ? null : new Blob(ch, { type: rec.mimeType })
+      );
+    };
+
+    $("submit").hidden = false;
+
+    $("submit").onclick = () => rec.stop();
+
+    $("status").textContent =
+      "Listening... press Submit when you finish";
+
+    rec.start();
+  });
+}
+
+// ---- INTERVIEW ----
+$("start").onclick = async () => {
+  const topic = $("topic").value.trim();
+
+  if (!topic) {
+    $("serr").textContent = "Please enter a topic.";
+    return;
+  }
+
+  try {
+    ctx = new AudioContext();
+
+    mic = await navigator.mediaDevices.getUserMedia({
+      audio: true
+    });
+
+    ma = ctx.createAnalyser();
+    ma.fftSize = 512;
+
+    ctx.createMediaStreamSource(mic).connect(ma);
+
+  } catch (e) {
+    $("serr").textContent =
+      "Microphone not allowed: " + e.message;
+    return;
+  }
+
+  interview(topic, $("level").value, +$("count").value);
+};
+
+async function interview(topic, lvl, count) {
+  show("talk");
+
+  $("q").textContent = "";
+  $("count2").textContent = "";
+  $("back2").hidden = true;
+
+  try {
+    $("status").textContent = "Preparing questions...";
+
+    const qs = (
+      await (
+        await api({
+          action: "questions",
+          mode,
+          topic,
+          level: lvl,
+          count
+        })
+      ).json()
+    ).questions;
+
+    const skipAudio = await speak(
+      "No problem, let's move on."
+    );
+
+    const answers = [];
+
+    for (let i = 0; i < qs.length; i++) {
+      $("count2").textContent =
+        `Question ${i + 1} of ${qs.length}`;
+
+      $("q").textContent = qs[i];
+      $("status").textContent = "Asking...";
+
+      await play(await speak(qs[i]));
+
+      const b = await listen();
+      answers.push(b);
+
+      if (!b && i < qs.length - 1) {
+        $("status").textContent = "Skipping...";
+        await play(skipAudio);
+      }
+    }
+
+    mic.getTracks().forEach(t => t.stop());
+
+    $("q").textContent = "";
+    $("count2").textContent = "";
+
+    $("status").textContent =
+      "Evaluating your answers...";
+
+    const qa = [];
+
+    for (let i = 0; i < qs.length; i++) {
+      let a = "(no answer)";
+
+      if (answers[i]) {
+        const f = new FormData();
+
+        f.append("action", "transcribe");
+
+        f.append(
+          "file",
+          answers[i],
+          answers[i].type.includes("mp4")
+            ? "a.mp4"
+            : "a.webm"
+        );
+
+        a = (
+          (await (await api(f, true)).json()).text || ""
+        ).trim() || "(no answer)";
+      }
+
+      qa.push({
+        q: qs[i],
+        a
+      });
+    }
+
+    const rep = await (
+      await api({
+        action: "evaluate",
+        mode,
+        topic,
+        level: lvl,
+        qa
+      })
+    ).json();
+
+    const { data, error } = await sb
+      .from("sessions")
+      .insert({
+        mode,
+        topic,
+        level: lvl,
+        score: rep.score,
+        report: rep,
+        qa
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    report(data);
+
+  } catch (e) {
+    $("status").textContent = "Error: " + e.message;
+    $("back2").hidden = false;
+  }
+}
+
+// ---- REPORT + DELETE ----
+function report(s) {
+  show("rep");
+
+  cur = s;
+
+  const r = s.report;
+  const el = $("repbody");
+
+  el.innerHTML = "";
+
+  const add = (t, tag = "p") => {
+    const e = document.createElement(tag);
+    e.textContent = t;
+    el.append(e);
+  };
+
+  add(`${s.topic} · ${s.level} · ${s.mode}`, "h3");
+  add(`Score: ${r.score}/10`, "h2");
+  add(r.summary);
+
+  add("Strengths", "h3");
+
+  (r.strengths || []).forEach(x =>
+    add("• " + x)
+  );
+
+  add("To improve", "h3");
+
+  (r.improvements || []).forEach(x =>
+    add("• " + x)
+  );
+
+  add("Question by question", "h3");
+
+  (s.qa || []).forEach((x, i) => {
+    add("Q: " + x.q);
+    add("Your answer: " + x.a);
+
+    add(
+      "Feedback: " +
+      ((r.per_question || [])[i] || "")
+    );
+  });
+
+  add("Study plan", "h3");
+
+  (r.study_plan || []).forEach(x =>
+    add("• " + x)
+  );
+}
+
+$("del").onclick = async () => {
+  if (!confirm(
+    "Delete this interview and everything saved for it?"
+  )) return;
+
+  const { error } = await sb
+    .from("sessions")
+    .delete()
+    .eq("id", cur.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  home();
+};
+</script>
+</body>
+</html>
